@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timer</title>
+    
+    <link rel="icon" type="image/png" href="timer_icon.png">
+
+    <style>
+        /* ========================================
+           CORE SYSTEM VARIABLES (ROOT)
+           ========================================
+        */
+        :root {
+            --glow-color: #ffffff;
+            --bg-color: #010101;
+            --bg-image: none;
+            --font-weight: 400;
+            --text-opacity: 1;
+            --label-opacity: 0.3;
+            --master-brightness: 1;
+            --letter-spacing: -2px;
+            --main-font: 'Courier New', monospace;
+            --transition-speed: 0.4s;
+            --drawer-bg: rgba(0, 0, 0, 0.98);
+        }
+
+        /* ========================================
+           GLOBAL STYLES & MASTER RENDER
+           ========================================
+        */
+        * {
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body { 
+            background-color: var(--bg-color); 
+            background-image: var(--bg-image);
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: var(--glow-color);
+            font-family: var(--main-font);
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0;
+            padding: 20px;
+            overflow: hidden;
+            transition: background-color var(--transition-speed) ease;
+            filter: brightness(var(--master-brightness));
+        }
+
+        /* ========================================
+           TIMER GRID ARCHITECTURE
+           ========================================
+        */
+        #timer { 
+            text-align: center;
+            letter-spacing: var(--letter-spacing); 
+            font-weight: var(--font-weight);
+            opacity: var(--text-opacity);
+            z-index: 1;
+            font-variant-numeric: tabular-nums;
+            will-change: transform, opacity;
+            user-select: none;
+        }
+
+        .source-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 50px;
+            font-size: 6vw;
+        }
+        
+        /* Individual Unit Layout */
+        .unit-container { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            min-width: 320px; 
+            transition: transform 0.2s ease;
+        }
+        
+        .unit-container:hover {
+            transform: scale(1.02);
+        }
+        
+        .unit-label { 
+            font-size: 1.1vw; 
+            text-transform: uppercase; 
+            color: var(--glow-color); 
+            opacity: var(--label-opacity);
+            letter-spacing: 3px; 
+            margin-top: 8px; 
+            font-weight: 400; 
+            font-family: sans-serif; 
+        }
+        
+        .sub-plate { 
+            font-size: 1.2vw; 
+            color: var(--glow-color);
+            opacity: calc(var(--label-opacity) * 0.75);
+            margin-top: 6px; 
+            letter-spacing: 1px; 
+            font-variant-numeric: tabular-nums; 
+        }
+
+        /* ========================================
+           ANIMATION ENGINE
+           ========================================
+        */
+        .pulse-active { 
+            animation: corePulse 10s cubic-bezier(0.4, 0, 0.2, 1) infinite; 
+        }
+
+        @keyframes corePulse {
+            0%, 100% { opacity: 0.45; }
+            50% { opacity: var(--text-opacity); }
+        }
+
+        /* ========================================
+           SETTINGS INTERFACE (DRAWER)
+           ========================================
+        */
+        #settingsDrawer {
+            position: absolute;
+            bottom: -850px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 550px;
+            height: 520px; 
+            background: var(--drawer-bg);
+            backdrop-filter: blur(50px);
+            border: 1px solid #1a1a1a;
+            border-top: 2px solid var(--glow-color);
+            padding: 40px;
+            border-radius: 24px 24px 0 0;
+            transition: bottom 0.6s cubic-bezier(0.19, 1, 0.22, 1);
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px;
+            z-index: 100;
+            overflow-y: auto;
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+        }
+
+        #settingsDrawer.open { 
+            bottom: 0; 
+        }
+        
+        .drawer-header { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 20px;
+            border-bottom: 1px solid #222;
+            padding-bottom: 10px;
+        }
+
+        .close-x { 
+            cursor: pointer; 
+            color: #555; 
+            font-size: 1.2rem; 
+            transition: color 0.2s; 
+            font-weight: bold; 
+        }
+
+        .close-x:hover { 
+            color: var(--glow-color); 
+        }
+
+        /* UI Elements */
+        .setting-row { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            gap: 15px; 
+        }
+
+        label { 
+            font-size: 0.7rem; 
+            text-transform: uppercase; 
+            color: #777; 
+            letter-spacing: 1.5px; 
+            font-family: sans-serif; 
+        }
+
+        #gear {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            cursor: pointer;
+            font-size: 2rem;
+            opacity: 0.15;
+            transition: all 0.4s ease;
+        }
+
+        #gear:hover { 
+            opacity: 1; 
+            transform: rotate(120deg); 
+            color: var(--glow-color); 
+        }
+
+        /* Form Controls */
+        button, select, input {
+            background: #080808;
+            border: 1px solid #222;
+            color: #eee;
+            padding: 10px;
+            font-family: inherit;
+            cursor: pointer;
+            font-size: 0.8rem;
+            border-radius: 4px;
+            transition: border 0.2s;
+        }
+
+        button:hover, select:hover {
+            border-color: #444;
+        }
+
+        .small-btn { 
+            padding: 6px 14px; 
+            font-size: 0.7rem; 
+            text-transform: uppercase; 
+        }
+    </style>
+</head>
+
+<body class="pulse-active">
+
+    <div id="timer" class="source-grid">
+        CORE INITIALIZING...
+    </div>
+
+    <div id="gear">⚙️</div>
+
+    <div id="settingsDrawer">
+        <div class="drawer-header">
+            <label style="color:var(--glow-color); font-weight: bold;">System Configuration</label>
+            <div class="close-x" onclick="closeDrawer()">CLOSE [X]</div>
+        </div>
+
+        <div class="setting-row">
+            <label>Master Brightness</label>
+            <input type="range" id="masterSlider" min="10" max="100" value="100">
+        </div>
+
+        <div class="setting-row">
+            <label>Main Numbers</label>
+            <input type="range" id="glowSlider" min="10" max="100" value="100">
+        </div>
+
+        <div class="setting-row">
+            <label>Interface Labels</label>
+            <input type="range" id="labelSlider" min="0" max="100" value="30">
+        </div>
+
+        <div class="setting-row">
+            <label>Engine Font</label>
+            <select id="fontPicker">
+                <option value="'Courier New', monospace">COURIER MONO</option>
+                <option value="Impact, sans-serif">IMPACT HEAVY</option>
+                <option value="'Arial Black', sans-serif">ARIAL BLACK</option>
+                <option value="system-ui">SYSTEM NATIVE</option>
+                <option value="Georgia, serif">GEORGIA CLASSIC</option>
+                <option value="'Lucida Console', monospace">LUCIDA MONO</option>
+                <option value="Copperplate, serif">COPPERPLATE</option>
+            </select>
+        </div>
+
+        <div class="setting-row">
+            <label>Lifespan Target</label>
+            <select id="agePicker">
+                <option value="90">90 YEARS (DEFAULT)</option>
+                <option value="80">80 YEARS (COMPACT)</option>
+                <option value="70">70 YEARS (ACCELERATED)</option>
+            </select>
+        </div>
+
+        <div class="setting-row">
+            <label>Theme & Bold</label>
+            <div style="display:flex; gap:8px;">
+                <input type="color" id="colorPicker" value="#ffffff">
+                <button id="fxBtn" class="small-btn">FX: ON</button>
+                <button id="boldBtn" class="small-btn">BOLD</button>
+            </div>
+        </div>
+
+        <div class="setting-row">
+            <label>Sub-Plate Modules</label>
+            <button id="ghostBtn" class="small-btn">PLATES: ENABLED</button>
+        </div>
+
+        <div class="setting-row" style="border-top: 1px solid #222; padding-top: 15px;">
+            <label>Environment</label>
+            <div style="display:flex; gap:8px;">
+                <input type="file" id="bgPicker" accept="image/*" style="width:140px;">
+                <button id="resetBg" class="small-btn" style="color:#ff4444;">CLEAR BG</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ========================================
+           CORE LOGIC ENGINE
+           ========================================
+        */
+
+        // Initializing State
+        const BIRTH_DATE = new Date(2007, 5, 6); //
+        let yearsToLive = 90;
+        let fxOn = true;
+        let isBold = false;
+        let ghostOn = true;
+
+        // DOM Element Registry
+        const display = document.getElementById("timer");
+        const drawer = document.getElementById("settingsDrawer");
+        const gear = document.getElementById("gear");
+        
+        // Settings Inputs
+        const fontPicker = document.getElementById("fontPicker");
+        const agePicker = document.getElementById("agePicker");
+        const colorPicker = document.getElementById("colorPicker");
+        const glowSlider = document.getElementById("glowSlider");
+        const labelSlider = document.getElementById("labelSlider");
+        const masterSlider = document.getElementById("masterSlider");
+        const bgPicker = document.getElementById("bgPicker");
+        
+        // Control Buttons
+        const fxBtn = document.getElementById("fxBtn");
+        const boldBtn = document.getElementById("boldBtn");
+        const ghostBtn = document.getElementById("ghostBtn");
+        const resetBg = document.getElementById("resetBg");
+
+        /* ========================================
+           EVENT HANDLERS
+           ========================================
+        */
+
+        const closeDrawer = () => drawer.classList.remove("open");
+        gear.onclick = () => drawer.classList.toggle("open");
+
+        // UI Persistence Logic
+        const save = (key, val) => localStorage.setItem(`src_v2_${key}`, val);
+        const load = (key) => localStorage.getItem(`src_v2_${key}`);
+
+        // Input Updates
+        fontPicker.onchange = (e) => {
+            document.documentElement.style.setProperty('--main-font', e.target.value);
+            save('font', e.target.value);
+        };
+
+        agePicker.onchange = (e) => {
+            yearsToLive = parseInt(e.target.value);
+            save('age', yearsToLive);
+        };
+
+        glowSlider.oninput = (e) => {
+            const v = e.target.value / 100;
+            document.documentElement.style.setProperty('--text-opacity', v);
+            save('glow', e.target.value);
+        };
+
+        labelSlider.oninput = (e) => {
+            const v = e.target.value / 100;
+            document.documentElement.style.setProperty('--label-opacity', v);
+            save('label', e.target.value);
+        };
+
+        masterSlider.oninput = (e) => {
+            const v = e.target.value / 100;
+            document.documentElement.style.setProperty('--master-brightness', v);
+            save('master', e.target.value);
+        };
+
+        // Feature Toggles
+        fxBtn.onclick = () => {
+            fxOn = !fxOn;
+            document.body.classList.toggle("pulse-active", fxOn);
+            fxBtn.innerText = fxOn ? "FX: ON" : "FX: OFF";
+            save('fx', fxOn);
+        };
+
+        boldBtn.onclick = () => {
+            isBold = !isBold;
+            document.documentElement.style.setProperty('--font-weight', isBold ? '900' : '400');
+            document.documentElement.style.setProperty('--letter-spacing', isBold ? '0px' : '-2px');
+            boldBtn.style.borderColor = isBold ? 'var(--glow-color)' : '#222';
+            save('bold', isBold);
+        };
+
+        ghostBtn.onclick = () => {
+            ghostOn = !ghostOn;
+            ghostBtn.innerText = ghostOn ? "PLATES: ENABLED" : "PLATES: HIDDEN";
+            save('ghost', ghostOn);
+        };
+
+        colorPicker.oninput = (e) => {
+            document.documentElement.style.setProperty('--glow-color', e.target.value);
+            save('color', e.target.value);
+        };
+
+        // File/Background Logic
+        bgPicker.onchange = (e) => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                document.documentElement.style.setProperty('--bg-image', `url(${reader.result})`);
+                save('bg', reader.result);
+            };
+            if (file) reader.readAsDataURL(file);
+        };
+
+        resetBg.onclick = () => {
+            document.documentElement.style.setProperty('--bg-image', 'none');
+            localStorage.removeItem('src_v2_bg');
+        };
+
+        /* ========================================
+           RENDER LOOP (30FPS ENGINE)
+           ========================================
+        */
+
+        function updateTimer() {
+            const now = Date.now();
+            const lifespanMS = yearsToLive * 31556952000;
+            const deathDate = new Date(BIRTH_DATE.getTime() + lifespanMS);
+            const totalSeconds = Math.max(0, Math.floor((deathDate - now) / 1000));
+            
+            if (totalSeconds >= 0) {
+                const subDisplay = ghostOn ? "block" : "none";
+                
+                // Calculations
+                const d = Math.floor(totalSeconds / 86400);
+                const h = Math.floor(totalSeconds / 3600);
+                const m = Math.floor(totalSeconds / 60);
+                
+                const template = `
+                    <div class="unit-container">
+                        <span>${d.toLocaleString()}</span>
+                        <span class="unit-label">Days Remaining</span>
+                        <div class="sub-plate" style="display:${subDisplay}">${h.toLocaleString()} hours</div>
+                    </div>
+                    <div class="unit-container">
+                        <span>${h.toLocaleString()}</span>
+                        <span class="unit-label">Hours Remaining</span>
+                        <div class="sub-plate" style="display:${subDisplay}">${d.toLocaleString()} days</div>
+                    </div>
+                    <div class="unit-container">
+                        <span>${m.toLocaleString()}</span>
+                        <span class="unit-label">Minutes Total</span>
+                        <div class="sub-plate" style="display:${subDisplay}">${totalSeconds.toLocaleString()} seconds</div>
+                    </div>
+                    <div class="unit-container">
+                        <span>${totalSeconds.toLocaleString()}</span>
+                        <span class="unit-label">Seconds Left</span>
+                        <div class="sub-plate" style="display:${subDisplay}">${m.toLocaleString()} minutes</div>
+                    </div>
+                `;
+                
+                // Only update DOM if content changed (saves CPU)
+                if (display.innerHTML !== template) {
+                    display.innerHTML = template;
+                }
+            }
+            requestAnimationFrame(updateTimer);
+        }
+
+        /* ========================================
+           SYSTEM BOOT
+           ========================================
+        */
+        window.onload = () => {
+            console.log("System Initializing: Ultra Build Loaded.");
+            
+            // Load Saved Config
+            if (load('font')) { 
+                const f = load('font'); 
+                document.documentElement.style.setProperty('--main-font', f); 
+                fontPicker.value = f; 
+            }
+            if (load('color')) { 
+                const c = load('color'); 
+                document.documentElement.style.setProperty('--glow-color', c); 
+                colorPicker.value = c; 
+            }
+            if (load('bg')) {
+                document.documentElement.style.setProperty('--bg-image', `url(${load('bg')})`);
+            }
+            if (load('master')) {
+                const m = load('master');
+                masterSlider.value = m;
+                document.documentElement.style.setProperty('--master-brightness', m / 100);
+            }
+            if (load('age')) {
+                yearsToLive = parseInt(load('age'));
+                agePicker.value = yearsToLive;
+            }
+            if (load('fx') === "false") {
+                fxOn = false;
+                document.body.classList.remove("pulse-active");
+                fxBtn.innerText = "FX: OFF";
+            }
+            if (load('bold') === "true") {
+                isBold = true;
+                document.documentElement.style.setProperty('--font-weight', '900');
+                boldBtn.style.borderColor = 'var(--glow-color)';
+            }
+            if (load('ghost') === "false") {
+                ghostOn = false;
+                ghostBtn.innerText = "PLATES: HIDDEN";
+            }
+
+            // Start the Engine
+            requestAnimationFrame(updateTimer);
+        };
+    </script>
+</body>
+</html>
